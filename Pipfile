@@ -11,6 +11,8 @@ drf-yasg = "*"
 django-debug-toolbar = "*"
 django-crispy-forms = "*"
 environs = "*"
+django-request-viewer = "*"
+psycopg2 = "*"
 
 [dev-packages]
 

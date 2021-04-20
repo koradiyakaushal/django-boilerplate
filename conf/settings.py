@@ -1,13 +1,32 @@
+import os
+import environ
 from pathlib import Path
-
+from datetime import timedelta, datetime
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = '%o1)2+xxqp62j^asa7buz_9bv8%9+75aeu7l20qla8z-aq^&9&'
+## ENV Variables
+env = environ.Env()
+if os.name == "nt":
+    ENV_DIR = str(BASE_DIR.joinpath('.env'))
+else:
+    ENV_DIR = "/opt/.env"
 
-DEBUG = True
+env.read_env(ENV_DIR)
 
-ALLOWED_HOSTS = []
+DEBUG = env.bool("DEBUG", True)
+SECRET_KEY = env("SECRET_KEY")
 
+DB_NAME = env.str("DB_NAME", "postgres")
+DB_USER = env.str("DB_USER", "postgres")
+DB_PASS = env.str("DB_PASS", "7410")
+DB_HOST = env.str("DB_HOST", "localhost")
+
+ES_URL = env.str("ES_URL", "localhost:9200")
+
+ELASTICSEARCH_DSL_AUTO_REFRESH = False
+ELASTICSEARCH_DSL_AUTOSYNC = False
+
+ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -20,20 +39,29 @@ INSTALLED_APPS = [
     # 3rd-party apps
     'rest_framework',
     'rest_framework.authtoken',
+    'corsheaders',
     'drf_yasg', # new
     'debug_toolbar',
+    # 'request_viewer',
+    # 'channels',
+    # 'django_crontab',
+
+    # user-defined apps
+    'app',
 
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'debug_toolbar.middleware.DebugToolbarMiddleware',
+    # 'request_viewer.middleware.RequestViewerMiddleware',
 ]
 
 REST_FRAMEWORK = {
@@ -41,11 +69,16 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        # 'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication', # new
     ],
 }
+SESSION_COOKIE_AGE = 1000
 
+# REQUEST_VIEWER = {
+#     "LIVE_MONITORING": True,
+#     "WHITELISTED_PATHS": ['admin/', '/logs/', '/logs/request-viewer/']
+# }
 
 ROOT_URLCONF = 'conf.urls'
 
@@ -67,14 +100,58 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'conf.wsgi.application'
 
+CORS_ORIGIN_ALLOW_ALL = True
 
+CORS_ALLOW_METHODS = (
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+)
+
+CORS_ALLOW_HEADERS = ("*")
+
+DB_NAME = "test"
+DB_USER = "postgres"
+DB_PASS = "7410"
+DB_HOST = "localhost"
+
+# print(DB_HOST)
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': DB_NAME,
+        'USER': DB_USER,
+        'PASSWORD': DB_PASS,
+        'HOST': DB_HOST,
+        'PORT': '5432'
     }
 }
 
+# LOGGING = {
+#     "version": 1,
+#     "disable_existing_loggers": False,
+#     "formatters": {
+#         "verbose": {
+#             "format": "%(levelname)s %(asctime)s %(module)s "
+#             "%(process)d %(thread)d %(message)s"
+#         }
+#     },
+#     "handlers": {
+#         # 'elasticapm': {
+#         #     'level': 'WARNING',
+#         #     'class': 'elasticapm.contrib.django.handlers.LoggingHandler',
+#         # },
+#         "console": {
+#             "level": "DEBUG",
+#             "class": "logging.StreamHandler",
+#             "formatter": "verbose",
+#         }
+#     },
+#     "root": {"level": "INFO", "handlers": ["console"]},
+# }
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -128,3 +205,51 @@ SWAGGER_SETTINGS = {
         }
     },
 }
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=10),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=20),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': True,
+
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUDIENCE': None,
+    'ISSUER': None,
+
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+
+    'JTI_CLAIM': 'jti',
+    'TOKEN_USER_CLASS': 'rest_framework_simplejwt.models.TokenUser',
+
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
+    'SLIDING_TOKEN_LIFETIME': timedelta(days=10),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=20),
+}
+
+
+if not DEBUG:
+    APM_URL = env("APM_URL")
+    INSTALLED_APPS += ['elasticapm.contrib.django']
+    ELASTIC_APM = {
+        'SERVICE_NAME': 'Test-Service',
+        'SECRET_TOKEN': '',
+        'SERVER_URL': APM_URL
+    }
+    MIDDLEWARE += ['elasticapm.contrib.django.middleware.TracingMiddleware']
+
+ELASTICSEARCH_DSL = {
+    'default': {
+        'hosts': ES_URL
+    },
+}
+
+CRONJOBS = [
+    # ('00 7 * * *', 'crons.maincron.main', '>> /tmp/maincron.log'),
+]

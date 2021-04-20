@@ -1,0 +1,18 @@
+name: Development
+
+on:
+  push:
+    branches: [ dev ]
+
+jobs:
+  build:
+
+    runs-on: self-hosted
+    
+    steps:          
+
+      - name: Run shell script in server
+        run: |
+          sudo su
+          cd /opt/
+          sh dev.sh
